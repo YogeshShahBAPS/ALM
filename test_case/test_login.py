@@ -1,26 +1,41 @@
-import time
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from page_objects.login import LoginPage
 from utilities.excel import get_matched_test_cases
 from datetime import datetime
+import pandas as pd
 
-test_data = get_matched_test_cases()
-print(test_data)
+# File paths
+test_case_file = r"E:\Priojecttree\Automation Testing\Git\ALM\utilities\Test_Case.xlsx"
+data_file = r"E:\Priojecttree\Automation Testing\Git\ALM\utilities\ALM_Data.xlsx"
+
+
+# Call the utility function to get matched test cases
+matched_data = get_matched_test_cases(test_case_file, data_file)
+
+# Check if matched data is empty
+if matched_data.empty:
+    print("No matched test cases to execute.")
+    exit()
+
 # Initialize the WebDriver
 driver = webdriver.Chrome()
 driver.maximize_window()
 
+# Initialize the page object
+login_page = LoginPage(driver)
+
 # Create a WebDriverWait instance
 wait = WebDriverWait(driver, 10)
 
-# Loop through each row of the DataFrame to perform login tests
-for index, row in test_data.iterrows():
-    tc_number = row['MTC']
-    user_name = row['username']  # Get username from the Excel file
-    password = row['password']   # Get password from the Excel file
-    expected_text = row['Expected Text']  # Expected dashboard text
+# Iterate through matched test cases
+for index, row in matched_data.iterrows():
+    tc_number = row['TestCase_MTC']
+    user_name = row['Module_username']
+    password = row['Module_password']
+    expected_text = row['Module_Expected Text']
 
     result = "FAIL"  # Default result
 
@@ -28,41 +43,32 @@ for index, row in test_data.iterrows():
         # Navigate to the login page
         driver.get("https://qa.baps.dev/alm/signIn")
 
-        # Wait for the 'Login with BAPS SSO' button and click it
-        loginbaps_sso = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[contains(@label, 'Login with BAPS SSO')]"))).click()
+        # Perform login using page object methods
+        login_page.click_login_with_baps_sso()
+        login_page.enter_username(user_name)
+        login_page.enter_password(password)
+        login_page.click_sign_in()
 
-        # Wait for username and password fields and input credentials
-        username_field = wait.until(EC.visibility_of_element_located((By.XPATH, "//input[@name='userName']"))).send_keys(user_name)
-        password_field = wait.until(EC.visibility_of_element_located((By.XPATH, "//input[@name='password']"))).send_keys(password)
-
-        # Click the sign-in button
-        sign_in_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[@class='btn btn-primary btn-submit']"))).click()
-
-        # Check if the Dashboard text is present
+        # Verify dashboard text
         dashboard_xpath = "//*[@id='main_content']/app-dashboard/div[1]/div/h4"
         actual_text = wait.until(EC.visibility_of_element_located((By.XPATH, dashboard_xpath))).text
 
-        # Compare actual text with the expected text
         if actual_text.strip() == expected_text.strip():
             result = "PASS"
-        else:
-            result = "FAIL"
 
     except Exception as e:
-        print(f"Error during test case {tc_number}: {str(e)}")
-        result = "FAIL"  # If there's any error during the process, mark it as FAIL
+        print(f"Error during test case {tc_number}: {e}")
+        result = "FAIL"
 
-    # Add the result to the DataFrame in a new column 'Result'
-    test_data.at[index, 'Result'] = result
+    # Update the result in the matched data
+    matched_data.at[index, 'TestCase_Result'] = result
 
-# Close the driver
+# Close the WebDriver
 driver.quit()
 
-# Generate the new filename with the current date and time
+# Save the results to an Excel file
 current_datetime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-output_file_path = r"C:\Users\Tmp Admin\PycharmProjects\SeleniumPython\PythonProject\HTML Report\ALM_Test_Results.xlsx"
+output_file_path = f"E:\Priojecttree\Automation Testing\Git\ALM\Excel Report\ALM_Test_Results_{current_datetime}.xlsx"
+matched_data.to_excel(output_file_path, index=False)
 
-# Save the updated DataFrame to the new Excel file
-test_data.to_excel(output_file_path, index=False)
-
-print(f"Test results saved to a new Excel file: {output_file_path}")
+print(f"Test results saved to: {output_file_path}")
