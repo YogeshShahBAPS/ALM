@@ -6,11 +6,18 @@ from page_objects.login import LoginPage
 from utilities.excel import get_matched_test_cases
 from datetime import datetime
 import pandas as pd
+import os
+import sys
 
 # File paths
 test_case_file = r"E:\Priojecttree\Automation Testing\Git\ALM\utilities\Test_Case.xlsx"
 data_file = r"E:\Priojecttree\Automation Testing\Git\ALM\utilities\ALM_Data.xlsx"
+screenshot_dir = r"E:\Priojecttree\Automation Testing\Git\ALM\ScreenShots"
+output_dir = r"E:\Priojecttree\Automation Testing\Git\ALM\Excel Report"
 
+# Ensure directories exist
+os.makedirs(screenshot_dir, exist_ok=True)
+os.makedirs(output_dir, exist_ok=True)
 
 # Call the utility function to get matched test cases
 matched_data = get_matched_test_cases(test_case_file, data_file)
@@ -18,7 +25,7 @@ matched_data = get_matched_test_cases(test_case_file, data_file)
 # Check if matched data is empty
 if matched_data.empty:
     print("No matched test cases to execute.")
-    exit()
+    sys.exit()
 
 # Initialize the WebDriver
 driver = webdriver.Chrome()
@@ -32,10 +39,10 @@ wait = WebDriverWait(driver, 10)
 
 # Iterate through matched test cases
 for index, row in matched_data.iterrows():
-    tc_number = row['TestCase_MTC']
-    user_name = row['Module_username']
-    password = row['Module_password']
-    expected_text = row['Module_Expected Text']
+    tc_number = row['MTC']
+    user_name = row['username']
+    password = row['password']
+    expected_text = row['Expected Text']
 
     result = "FAIL"  # Default result
 
@@ -57,6 +64,8 @@ for index, row in matched_data.iterrows():
             result = "PASS"
 
     except Exception as e:
+        screenshot_path = os.path.join(screenshot_dir, f"{tc_number}.png")
+        driver.save_screenshot(screenshot_path)
         print(f"Error during test case {tc_number}: {e}")
         result = "FAIL"
 
@@ -67,8 +76,8 @@ for index, row in matched_data.iterrows():
 driver.quit()
 
 # Save the results to an Excel file
-current_datetime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-output_file_path = f"E:\Priojecttree\Automation Testing\Git\ALM\Excel Report\ALM_Test_Results_{current_datetime}.xlsx"
+current_datetime = datetime.now().strftime("%d-%m_%H-%M-%S")
+output_file_path = os.path.join(output_dir, f"ALM_Test_Results_{current_datetime}.xlsx")
 matched_data.to_excel(output_file_path, index=False)
 
 print(f"Test results saved to: {output_file_path}")
